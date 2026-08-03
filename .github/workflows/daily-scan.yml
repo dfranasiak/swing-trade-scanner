@@ -1,0 +1,46 @@
+name: Daily Swing Trade Scan
+
+on:
+  schedule:
+    # 11:30 UTC ≈ 7:30am ET (EDT) / 6:30am ET (EST) — before the 9:30am ET open either way.
+    - cron: "30 11 * * 1-5"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-scan
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run scanner
+        run: python -m scanner.run
+
+      - name: Commit and push updated artifacts
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/data reports
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Daily scan: $(date -u +%Y-%m-%d)"
+            git push
+          fi

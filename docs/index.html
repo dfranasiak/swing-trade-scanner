@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Daily Swing Trade Scanner</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f7f7f8;
+    --surface: #ffffff;
+    --border: #e2e2e6;
+    --text: #1a1a1e;
+    --text-muted: #6b6b73;
+    --accent: #2f6feb;
+    --score-high: #1a7f37;
+    --score-mid: #9a6700;
+    --score-low: #57606a;
+    --row-hover: #f0f4ff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d0d10;
+      --surface: #17171b;
+      --border: #2a2a30;
+      --text: #e8e8ea;
+      --text-muted: #9a9aa2;
+      --accent: #5b9dff;
+      --score-high: #3fb950;
+      --score-mid: #d29922;
+      --score-low: #8b949e;
+      --row-hover: #1c2333;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.4;
+  }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 24px 20px 60px; }
+  header h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  header p.subtitle { color: var(--text-muted); margin: 0 0 20px; font-size: 0.9rem; }
+
+  .meta-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .meta-chip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+  .meta-chip strong { color: var(--text); font-weight: 600; }
+
+  .disclaimer {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin-bottom: 20px;
+  }
+
+  .table-scroll {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+  }
+  table { border-collapse: collapse; width: 100%; min-width: 900px; font-size: 0.85rem; }
+  thead th {
+    text-align: left;
+    padding: 10px 12px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    position: sticky;
+    top: 0;
+  }
+  tbody td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: var(--row-hover); }
+  td.ticker { font-weight: 700; }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .score-pill {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .score-high { color: var(--score-high); }
+  .score-mid { color: var(--score-mid); }
+  .score-low { color: var(--score-low); }
+
+  .empty-state, .error-state {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--text-muted);
+  }
+
+  footer { margin-top: 24px; color: var(--text-muted); font-size: 0.78rem; }
+  footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Daily Swing Trade Scanner</h1>
+      <p class="subtitle">S&amp;P 500 technical + fundamental screen, recomputed each trading morning.</p>
+    </header>
+
+    <div id="meta" class="meta-bar"></div>
+    <div id="disclaimer" class="disclaimer"></div>
+
+    <div class="table-scroll">
+      <table id="results-table" style="display:none">
+        <thead>
+          <tr>
+            <th>Ticker</th>
+            <th>Score</th>
+            <th>Setup Summary</th>
+            <th>Key Technical Trigger</th>
+            <th>Rev Growth YoY</th>
+            <th>Next Earnings</th>
+            <th>Entry Zone</th>
+            <th>Stop Level</th>
+          </tr>
+        </thead>
+        <tbody id="results-body"></tbody>
+      </table>
+      <div id="status" class="empty-state">Loading latest scan…</div>
+    </div>
+
+    <footer>
+      Screening tool output only — not investment advice. Data via Yahoo Finance (yfinance).
+      Source: <a href="https://github.com/" target="_blank" rel="noopener">swing-trade-scanner</a>.
+    </footer>
+  </div>
+
+<script>
+function scoreClass(score) {
+  if (score >= 70) return "score-high";
+  if (score >= 50) return "score-mid";
+  return "score-low";
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str == null ? "" : String(str);
+  return div.innerHTML;
+}
+
+async function loadData() {
+  const statusEl = document.getElementById("status");
+  const tableEl = document.getElementById("results-table");
+  const bodyEl = document.getElementById("results-body");
+  const metaEl = document.getElementById("meta");
+  const disclaimerEl = document.getElementById("disclaimer");
+
+  let data;
+  try {
+    const resp = await fetch("./data/scan-latest.json", { cache: "no-store" });
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+    data = await resp.json();
+  } catch (err) {
+    statusEl.className = "error-state";
+    statusEl.textContent = "Couldn't load scan-latest.json yet. It's written by the daily GitHub Actions run — check back after the next scheduled run, or run the scanner locally.";
+    return;
+  }
+
+  metaEl.innerHTML = `
+    <div class="meta-chip">Run: <strong>${escapeHtml(data.run_timestamp_utc)} UTC</strong></div>
+    <div class="meta-chip">S&amp;P 500 snapshot: <strong>${escapeHtml(data.sp500_snapshot_date)}</strong> (${escapeHtml(data.sp500_source)})</div>
+    <div class="meta-chip">Universe: <strong>${escapeHtml(data.universe_size)}</strong></div>
+    <div class="meta-chip">Technical pass: <strong>${escapeHtml(data.technical_pass_count)}</strong></div>
+    <div class="meta-chip">Fundamental pass: <strong>${escapeHtml(data.fundamental_pass_count)}</strong></div>
+  `;
+  disclaimerEl.textContent = data.disclaimer || "";
+
+  const results = data.results || [];
+  if (results.length === 0) {
+    statusEl.className = "empty-state";
+    statusEl.textContent = "No tickers passed both screens in the latest run.";
+    return;
+  }
+
+  bodyEl.innerHTML = results.map(r => `
+    <tr>
+      <td class="ticker">${escapeHtml(r.ticker)}</td>
+      <td class="num"><span class="score-pill ${scoreClass(r.conviction_score)}">${escapeHtml(r.conviction_score)}</span></td>
+      <td>${escapeHtml(r.setup_summary)}</td>
+      <td>${escapeHtml(r.key_technical_trigger)}</td>
+      <td class="num">${escapeHtml(r.revenue_growth_yoy)}</td>
+      <td class="num">${escapeHtml(r.next_earnings_date)}</td>
+      <td class="num">${escapeHtml(r.entry_zone)}</td>
+      <td class="num">$${Number(r.stop_level).toFixed(2)}</td>
+    </tr>
+  `).join("");
+
+  statusEl.style.display = "none";
+  tableEl.style.display = "table";
+}
+
+loadData();
+</script>
+</body>
+</html>
