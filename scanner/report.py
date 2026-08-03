@@ -23,15 +23,14 @@ def _fmt_date(value) -> str:
     return value.isoformat() if value else "N/A"
 
 
-def _entry_stop(candidate: ScoredCandidate) -> tuple[str, str]:
+def _entry_stop(candidate: ScoredCandidate) -> tuple[str, float]:
     t = candidate.technical
     entry_low = min(t.ema21, t.last_close)
     entry_high = max(t.ema21, t.last_close)
     entry_zone = f"${entry_low:.2f} - ${entry_high:.2f}"
 
-    stop_level = min(t.recent_low_20d, t.ema50) * 0.98
-    stop = f"${stop_level:.2f}"
-    return entry_zone, stop
+    stop_level = round(min(t.recent_low_20d, t.ema50) * 0.98, 2)
+    return entry_zone, stop_level
 
 
 def build_result_row(candidate: ScoredCandidate) -> dict:
