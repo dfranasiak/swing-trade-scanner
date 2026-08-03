@@ -30,8 +30,8 @@ structure) — never a buy/sell directive.
 4. **Step 3 — Conviction score** (`scanner/scoring.py`): 0–100, weighted 60%
    technical alignment strength / 40% fundamental quality.
 5. **Step 4 — Output** (`scanner/report.py`): top 15–20 names ranked by
-   score, written to `docs/data/scan-latest.json` (consumed by the
-   dashboard) and `docs/data/scan-latest.md` / `reports/scan-YYYY-MM-DD.md`
+   score, written to `data/scan-latest.json` (consumed by the
+   dashboard) and `data/scan-latest.md` / `reports/scan-YYYY-MM-DD.md`
    (human-readable, archived per day).
 
 Any field a data source doesn't provide (e.g. no recent revenue figure) is
@@ -45,7 +45,7 @@ python -m scanner.run                 # full S&P 500 scan
 python -m scanner.run --limit 25      # quick smoke test on a subset
 ```
 
-Outputs land in `docs/data/scan-latest.json` and `reports/`.
+Outputs land in `data/scan-latest.json` and `reports/`.
 
 Run tests with:
 
@@ -56,13 +56,14 @@ pytest -q
 
 ## Dashboard
 
-`docs/index.html` is a static, dependency-free page that fetches
-`docs/data/scan-latest.json` and renders the ranked table (score, setup
+`index.html` is a static, dependency-free page that fetches
+`data/scan-latest.json` and renders the ranked table (score, setup
 summary, key technical trigger, revenue growth, next earnings date,
 suggested entry zone, suggested stop level). It's designed to be served
-straight from GitHub Pages (Settings → Pages → deploy from `/docs` on the
-default branch) — no build step required. Until the first scan has run,
-it shows a "no data yet" message rather than fabricating a demo table.
+straight from GitHub Pages (Settings → Pages → "Deploy from a branch" →
+the default branch → `/ (root)`) — no build step required. Until the
+first scan has run, it shows a "no data yet" message rather than
+fabricating a demo table.
 
 ## Scheduling
 
@@ -102,9 +103,9 @@ scanner/
   scoring.py                # Step 3
   report.py                 # Step 4 (JSON + Markdown output)
   run.py                     # CLI orchestration
-docs/
-  index.html                # static dashboard
-  data/scan-latest.json     # latest run's artifact (dashboard reads this)
+index.html                  # static dashboard
+data/
+  scan-latest.json          # latest run's artifact (dashboard reads this)
 reports/
   scan-YYYY-MM-DD.md        # archived daily reports
 tests/                       # unit tests (indicators, screens, scoring)

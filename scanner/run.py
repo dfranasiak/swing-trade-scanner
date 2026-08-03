@@ -23,7 +23,7 @@ logging.basicConfig(
 logger = logging.getLogger("scanner.run")
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-DOCS_DATA_DIR = REPO_ROOT / "docs" / "data"
+DATA_DIR = REPO_ROOT / "data"
 REPORTS_DIR = REPO_ROOT / "reports"
 
 
@@ -100,11 +100,11 @@ def main(argv=None) -> int:
         fundamental_pass_count=fundamental_pass_count,
     )
 
-    DOCS_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
-    report.write_json(artifact, DOCS_DATA_DIR / "scan-latest.json")
-    report.write_markdown(artifact, DOCS_DATA_DIR / "scan-latest.md")
+    report.write_json(artifact, DATA_DIR / "scan-latest.json")
+    report.write_markdown(artifact, DATA_DIR / "scan-latest.md")
     date_str = run_started.date().isoformat()
     report.write_markdown(artifact, REPORTS_DIR / f"scan-{date_str}.md")
 
