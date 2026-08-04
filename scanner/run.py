@@ -113,7 +113,7 @@ def main(argv=None) -> int:
         "Done in %.1fs. %d names in final ranked output. Wrote %s",
         elapsed,
         len(ranked),
-        DOCS_DATA_DIR / "scan-latest.json",
+        DATA_DIR / "scan-latest.json",
     )
     return 0
 
