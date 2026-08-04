@@ -32,7 +32,14 @@ structure) — never a buy/sell directive.
 5. **Step 4 — Output** (`scanner/report.py`): top 15–20 names ranked by
    score, written to `data/scan-latest.json` (consumed by the
    dashboard) and `data/scan-latest.md` / `reports/scan-YYYY-MM-DD.md`
-   (human-readable, archived per day).
+   (human-readable, archived per day). Each run also appends its rows to
+   `data/history.json` — a running log of every ticker ever surfaced,
+   tagged with the date it was recommended (a same-day re-run replaces
+   that day's rows rather than duplicating them).
+
+Each result includes the company name, industry, and a one-sentence
+description (`longName`/`industry`/`longBusinessSummary` from `yfinance`,
+truncated to the first sentence — never rewritten or paraphrased).
 
 Any field a data source doesn't provide (e.g. no recent revenue figure) is
 marked `"N/A"` — the scanner never estimates or fabricates a value.
@@ -56,14 +63,19 @@ pytest -q
 
 ## Dashboard
 
-`index.html` is a static, dependency-free page that fetches
-`data/scan-latest.json` and renders the ranked table (score, setup
-summary, key technical trigger, revenue growth, next earnings date,
-suggested entry zone, suggested stop level). It's designed to be served
-straight from GitHub Pages (Settings → Pages → "Deploy from a branch" →
-the default branch → `/ (root)`) — no build step required. Until the
-first scan has run, it shows a "no data yet" message rather than
-fabricating a demo table.
+`index.html` is a static, dependency-free page with two tabs:
+
+- **Latest Scan** — fetches `data/scan-latest.json` and renders the ranked
+  table (ticker, company, industry, brief description, score, setup
+  summary, key technical trigger, revenue growth, next earnings date,
+  suggested entry zone, suggested stop level).
+- **History** — fetches `data/history.json` and renders every ticker ever
+  recommended, newest first, with a text filter (ticker or company name).
+
+It's designed to be served straight from GitHub Pages (Settings → Pages →
+"Deploy from a branch" → the default branch → `/ (root)`) — no build step
+required. Until the first scan has run, each tab shows a "no data yet"
+message rather than fabricating a demo table.
 
 The page also has a **"Run scan now"** button that triggers
 `daily-scan.yml` on demand via GitHub's `workflow_dispatch` API. Since
@@ -116,9 +128,10 @@ scanner/
   scoring.py                # Step 3
   report.py                 # Step 4 (JSON + Markdown output)
   run.py                     # CLI orchestration
-index.html                  # static dashboard
+index.html                  # static dashboard (Latest Scan + History tabs)
 data/
   scan-latest.json          # latest run's artifact (dashboard reads this)
+  history.json               # running log of every ticker ever recommended
 reports/
   scan-YYYY-MM-DD.md        # archived daily reports
 tests/                       # unit tests (indicators, screens, scoring)

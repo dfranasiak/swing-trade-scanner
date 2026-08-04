@@ -25,6 +25,9 @@ class Fundamentals:
     debt_to_equity: float | None = None
     next_earnings_date: dt.date | None = None
     trading_days_to_earnings: int | None = None
+    company_name: str | None = None
+    industry: str | None = None
+    business_summary: str | None = None  # yfinance's longBusinessSummary, verbatim (untrimmed)
 
 
 def fetch_price_history(tickers: list[str]) -> dict[str, pd.DataFrame]:
@@ -93,6 +96,9 @@ def fetch_fundamentals(ticker: str) -> Fundamentals:
     result.gross_margin = _safe_float(info.get("grossMargins"))
     result.operating_margin = _safe_float(info.get("operatingMargins"))
     result.debt_to_equity = _safe_float(info.get("debtToEquity"))
+    result.company_name = info.get("longName") or info.get("shortName") or None
+    result.industry = info.get("industry") or None
+    result.business_summary = info.get("longBusinessSummary") or None
 
     # Quarterly operating-margin trend (up to last 4 quarters, oldest -> newest)
     try:

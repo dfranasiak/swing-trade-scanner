@@ -181,6 +181,55 @@
     color: var(--text);
   }
   .token-form button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  .tabs { display: flex; gap: 4px; margin-bottom: 14px; border-bottom: 1px solid var(--border); }
+  .tab-btn {
+    background: none;
+    border: none;
+    padding: 8px 14px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .history-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .history-controls input {
+    padding: 7px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.82rem;
+    min-width: 220px;
+  }
+  .history-controls .count { font-size: 0.78rem; color: var(--text-muted); }
+  td.description {
+    color: var(--text-muted);
+    max-width: 220px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  td.company {
+    min-width: 120px;
+    max-width: 160px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 </style>
 </head>
 <body>
@@ -199,26 +248,65 @@
 
     <div id="token-form-container"></div>
 
-    <div id="meta" class="meta-bar"></div>
-    <div id="disclaimer" class="disclaimer"></div>
+    <div class="tabs">
+      <button type="button" class="tab-btn active" data-tab="latest">Latest Scan</button>
+      <button type="button" class="tab-btn" data-tab="history">History</button>
+    </div>
 
-    <div class="table-scroll">
-      <table id="results-table" style="display:none">
-        <thead>
-          <tr>
-            <th>Ticker</th>
-            <th>Score</th>
-            <th>Setup Summary</th>
-            <th>Key Technical Trigger</th>
-            <th>Rev Growth YoY</th>
-            <th>Next Earnings</th>
-            <th>Entry Zone</th>
-            <th>Stop Level</th>
-          </tr>
-        </thead>
-        <tbody id="results-body"></tbody>
-      </table>
-      <div id="status" class="empty-state">Loading latest scan…</div>
+    <div id="latest-panel" class="tab-panel active">
+      <div id="meta" class="meta-bar"></div>
+      <div id="disclaimer" class="disclaimer"></div>
+
+      <div class="table-scroll">
+        <table id="results-table" style="display:none">
+          <thead>
+            <tr>
+              <th>Ticker</th>
+              <th>Company</th>
+              <th>Industry</th>
+              <th>Description</th>
+              <th>Score</th>
+              <th>Setup Summary</th>
+              <th>Key Technical Trigger</th>
+              <th>Rev Growth YoY</th>
+              <th>Next Earnings</th>
+              <th>Entry Zone</th>
+              <th>Stop Level</th>
+            </tr>
+          </thead>
+          <tbody id="results-body"></tbody>
+        </table>
+        <div id="status" class="empty-state">Loading latest scan…</div>
+      </div>
+    </div>
+
+    <div id="history-panel" class="tab-panel">
+      <div class="history-controls">
+        <input type="text" id="history-filter" placeholder="Filter by ticker or company…" />
+        <span id="history-count" class="count"></span>
+      </div>
+      <div class="table-scroll">
+        <table id="history-table" style="display:none">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Ticker</th>
+              <th>Company</th>
+              <th>Industry</th>
+              <th>Description</th>
+              <th>Score</th>
+              <th>Setup Summary</th>
+              <th>Key Technical Trigger</th>
+              <th>Rev Growth YoY</th>
+              <th>Next Earnings</th>
+              <th>Entry Zone</th>
+              <th>Stop Level</th>
+            </tr>
+          </thead>
+          <tbody id="history-body"></tbody>
+        </table>
+        <div id="history-status" class="empty-state">Loading history…</div>
+      </div>
     </div>
 
     <footer>
@@ -284,6 +372,9 @@ async function loadData() {
   bodyEl.innerHTML = results.map(r => `
     <tr>
       <td class="ticker">${escapeHtml(r.ticker)}</td>
+      <td class="company" title="${escapeHtml(r.company_name)}">${escapeHtml(r.company_name)}</td>
+      <td>${escapeHtml(r.industry)}</td>
+      <td class="description" title="${escapeHtml(r.description)}">${escapeHtml(r.description)}</td>
       <td class="num"><span class="score-pill ${scoreClass(r.conviction_score)}">${escapeHtml(r.conviction_score)}</span></td>
       <td>${escapeHtml(r.setup_summary)}</td>
       <td>${escapeHtml(r.key_technical_trigger)}</td>
@@ -296,6 +387,86 @@ async function loadData() {
 
   statusEl.style.display = "none";
   tableEl.style.display = "table";
+}
+
+let historyRows = [];
+
+function renderHistoryRows(rows) {
+  const bodyEl = document.getElementById("history-body");
+  const tableEl = document.getElementById("history-table");
+  const statusEl = document.getElementById("history-status");
+  const countEl = document.getElementById("history-count");
+
+  countEl.textContent = `${rows.length} row${rows.length === 1 ? "" : "s"}`;
+
+  if (rows.length === 0) {
+    tableEl.style.display = "none";
+    statusEl.style.display = "block";
+    statusEl.textContent = historyRows.length === 0
+      ? "No history yet — accumulates after each daily run."
+      : "No rows match that filter.";
+    return;
+  }
+
+  bodyEl.innerHTML = rows.map(r => `
+    <tr>
+      <td class="num">${escapeHtml(r.run_date)}</td>
+      <td class="ticker">${escapeHtml(r.ticker)}</td>
+      <td class="company" title="${escapeHtml(r.company_name)}">${escapeHtml(r.company_name)}</td>
+      <td>${escapeHtml(r.industry)}</td>
+      <td class="description" title="${escapeHtml(r.description)}">${escapeHtml(r.description)}</td>
+      <td class="num"><span class="score-pill ${scoreClass(r.conviction_score)}">${escapeHtml(r.conviction_score)}</span></td>
+      <td>${escapeHtml(r.setup_summary)}</td>
+      <td>${escapeHtml(r.key_technical_trigger)}</td>
+      <td class="num">${escapeHtml(r.revenue_growth_yoy)}</td>
+      <td class="num">${escapeHtml(r.next_earnings_date)}</td>
+      <td class="num">${escapeHtml(r.entry_zone)}</td>
+      <td class="num">$${Number(r.stop_level).toFixed(2)}</td>
+    </tr>
+  `).join("");
+
+  statusEl.style.display = "none";
+  tableEl.style.display = "table";
+}
+
+function applyHistoryFilter() {
+  const query = document.getElementById("history-filter").value.trim().toLowerCase();
+  if (!query) {
+    renderHistoryRows(historyRows);
+    return;
+  }
+  const filtered = historyRows.filter(r =>
+    (r.ticker || "").toLowerCase().includes(query) ||
+    (r.company_name || "").toLowerCase().includes(query)
+  );
+  renderHistoryRows(filtered);
+}
+
+async function loadHistory() {
+  const statusEl = document.getElementById("history-status");
+  try {
+    const resp = await fetch("./data/history.json", { cache: "no-store" });
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+    historyRows = await resp.json();
+  } catch (err) {
+    statusEl.className = "error-state";
+    statusEl.textContent = "Couldn't load history.json yet. It's written by the daily GitHub Actions run and accumulates over time.";
+    document.getElementById("history-count").textContent = "";
+    return;
+  }
+  applyHistoryFilter();
+}
+
+function initTabs() {
+  const buttons = document.querySelectorAll(".tab-btn");
+  buttons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      buttons.forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById(`${btn.dataset.tab}-panel`).classList.add("active");
+    });
+  });
 }
 
 function getStoredToken() {
@@ -416,9 +587,12 @@ async function runWithToken(token) {
 }
 
 document.getElementById("run-btn").addEventListener("click", handleRunClick);
+document.getElementById("history-filter").addEventListener("input", applyHistoryFilter);
 renderRunLinks();
+initTabs();
 
 loadData();
+loadHistory();
 </script>
 </body>
 </html>

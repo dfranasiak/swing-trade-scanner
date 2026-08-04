@@ -108,6 +108,11 @@ def main(argv=None) -> int:
     date_str = run_started.date().isoformat()
     report.write_markdown(artifact, REPORTS_DIR / f"scan-{date_str}.md")
 
+    history_path = DATA_DIR / "history.json"
+    history = report.load_history(history_path)
+    history = report.update_history(history, artifact)
+    report.write_history(history, history_path)
+
     elapsed = time.time() - run_started.timestamp()
     logger.info(
         "Done in %.1fs. %d names in final ranked output. Wrote %s",
