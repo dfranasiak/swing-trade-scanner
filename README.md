@@ -65,6 +65,19 @@ the default branch → `/ (root)`) — no build step required. Until the
 first scan has run, it shows a "no data yet" message rather than
 fabricating a demo table.
 
+The page also has a **"Run scan now"** button that triggers
+`daily-scan.yml` on demand via GitHub's `workflow_dispatch` API. Since
+this is a public static page, it can't embed a secret, so on first click
+it asks for a GitHub *fine-grained* personal access token scoped only to
+this repo with `Actions: Read and write` permission
+(github.com/settings/personal-access-tokens/new). The token is written to
+that browser's `localStorage` and sent directly from the browser to
+`api.github.com` — it never passes through any server of ours, and a
+"forget saved token" link clears it. A rejected token (401/403) is
+cleared automatically. If the repo is ever renamed or moved, or the
+default branch changes, update the `GH_OWNER` / `GH_REPO` / `GH_REF`
+constants near the top of `index.html`'s `<script>`.
+
 ## Scheduling
 
 `.github/workflows/daily-scan.yml` runs the scanner on a cron schedule
